@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finance Puzzle</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#ffffff" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; padding: 1rem; }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #888; margin-bottom: 16px; }
+    .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .card { border-radius: 10px; padding: 12px 14px; }
+    .card .label { font-size: 11px; opacity: 0.7; margin-bottom: 4px; }
+    .card .value { font-size: 16px; font-weight: 600; }
+    .add-btn { width: 100%; background: #e6f1fb; border: 1px solid #378ADD; color: #042c53; border-radius: 10px; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 16px; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: white; border-radius: 16px; padding: 20px; width: 90%; max-width: 380px; }
+    .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .field { margin-bottom: 12px; }
+    .field label { font-size: 12px; color: #555; display: block; margin-bottom: 4px; }
+    .field input, .field select { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; font-size: 14px; outline: none; }
+    .field input:focus, .field select:focus { border-color: #378ADD; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .modal-actions button { flex: 1; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
+    .btn-cancel { background: #f0f0f0; color: #555; }
+    .btn-save { background: #378ADD; color: white; }
+    .zones { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+    .zone { background: white; border-radius: 12px; padding: 12px; min-height: 100px; border: 1px solid #e0e0e0; transition: all .15s; }
+    .zone.dragover { border: 2px dashed #888; background: #f9f9f9; }
+    .zone-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .zone-title { font-size: 14px; font-weight: 600; }
+    .zone-total { font-size: 12px; border-radius: 20px; padding: 2px 8px; font-weight: 600; }
+    .pieces { display: flex; flex-wrap: wrap; gap: 8px; }
+    .piece { border-radius: 8px; padding: 6px 10px; cursor: grab; user-select: none; max-width: 160px; position: relative; border: 1px solid rgba(0,0,0,0.1); }
+    .piece-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+    .piece-meta { display: flex; justify-content: space-between; font-size: 11px; margin-top: 2px; opacity: .75; gap: 4px; }
+    .piece-actions { display: flex; gap: 4px; margin-top: 4px; }
+    .btn-sm { font-size: 10px; border: none; border-radius: 4px; padding: 1px 6px; cursor: pointer; background: rgba(0,0,0,0.1); }
+    .btn-del { background: rgba(220,50,50,0.15); color: #a00; }
+    .manual-badge { font-size: 9px; background: rgba(0,0,0,0.12); border-radius: 4px; padding: 1px 4px; margin-left: 4px; vertical-align: middle; }
+    .savings { background: #fff0f6; border: 1px dashed #d4537e; border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+    .savings-bar-bg { background: #f4c0d1; border-radius: 20px; height: 8px; margin-top: 10px; overflow: hidden; }
+    .savings-bar { background: #d4537e; height: 100%; border-radius: 20px; transition: width .5s; }
+    .savings-text { font-size: 12px; color: #993556; margin-top: 6px; }
+    .ai-section { background: white; border-radius: 12px; padding: 14px; border: 1px solid #e0e0e0; }
+    .ai-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .ai-title { font-size: 14px; font-weight: 600; }
+    .ai-btn { background: #f0f0ff; border: 1px solid #7F77DD; color: #3C3489; border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-result { font-size: 13px; color: #333; line-height: 1.7; white-space: pre-wrap; }
+    .ai-loading { font-size: 13px; color: #888; font-style: italic; }
+    .empty { font-size: 12px; color: #aaa; padding: 6px 0; }
+    .rename-input { font-size: 12px; font-weight: 600; background: transparent; border: none; border-bottom: 1px solid #999; outline: none; width: 100%; }
+    .popup { display: none; position: absolute; top: 100%; left: 0; z-index: 10; background: white; border: 1px solid #ddd; border-radius: 8px; padding: 6px; margin-top: 4px; min-width: 130px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .popup.open { display: flex; flex-direction: column; gap: 4px; }
+    .popup-opt { border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Finance Puzzle 🧩</h1>
+  <p class="subtitle" id="subtitle">Cargando...</p>
+
+  <div class="summary">
+    <div class="card" style="background:#eaf3de"><div class="label" style="color:#173404">Ingresos</div><div class="value" style="color:#173404" id="s-ingresos">$0</div></div>
+    <div class="card" style="background:#fcebeb"><div class="label" style="color:#501313">Gastos</div><div class="value" style="color:#501313" id="s-gastos">$0</div></div>
+    <div class="card" style="background:#fbeaf0"><div class="label" style="color:#4b1528">Ahorro posible</div><div class="value" style="color:#4b1528" id="s-ahorro">$0</div></div>
+    <div class="card" style="background:#e6f1fb"><div class="label" style="color:#042c53">% ahorro</div><div class="value" style="color:#042c53" id="s-pct">0%</div></div>
+  </div>
+
+  <button class="add-btn" onclick="openModal()">+ Agregar gasto manualmente</button>
+
+  <div class="zones" id="zones"></div>
+
+  <div class="savings">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:600;color:#4b1528;font-size:14px">🐷 Ahorro potencial</span>
+      <span style="background:#f4c0d1;color:#4b1528;padding:2px 12px;border-radius:20px;font-size:13px;font-weight:600" id="s-ahorro2">$0</span>
+    </div>
+    <div class="savings-bar-bg"><div class="savings-bar" id="savings-bar" style="width:0%"></div></div>
+    <div class="savings-text" id="savings-text">Sincroniza para ver tus datos</div>
+  </div>
+
+  <div class="ai-section">
+    <div class="ai-header">
+      <span class="ai-title">🤖 Recomendaciones IA</span>
+      <button class="ai-btn" id="ai-btn" onclick="getAIAdvice()">Analiza mis finanzas</button>
+    </div>
+    <div id="ai-result" class="ai-result" style="display:none"></div>
+    <div id="ai-loading" class="ai-loading" style="display:none">Analizando tus finanzas...</div>
+    <p style="font-size:12px;color:#aaa" id="ai-placeholder">Presiona el botón para recibir consejos personalizados basados en tus gastos reales.</p>
+  </div>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h2>Agregar gasto manual</h2>
+      <div class="field"><label>Descripción</label><input id="f-desc" placeholder="Ej: Taxi, arriendo, etc." /></div>
+      <div class="field"><label>Monto (COP)</label><input id="f-amount" type="number" placeholder="Ej: 50000" /></div>
+      <div class="field"><label>Fecha</label><input id="f-date" type="date" /></div>
+      <div class="field">
+        <label>Categoría</label>
+        <select id="f-cat">
+          <option value="comida">🍔 Comida</option>
+          <option value="compras">🛍️ Compras</option>
+          <option value="otro">📦 Otro</option>
+          <option value="ingresos">💵 Ingresos</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+        <button class="btn-save" onclick="addManual()">Agregar pieza</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CATS = [
+      { id:'comida',   label:'Comida',   icon:'🍔', bg:'#FAC775', text:'#633806', border:'#EF9F27' },
+      { id:'compras',  label:'Compras',  icon:'🛍️', bg:'#B5D4F4', text:'#042C53', border:'#378ADD' },
+      { id:'otro',     label:'Otro',     icon:'📦', bg:'#D3D1C7', text:'#2C2C2A', border:'#888780' },
+      { id:'ingresos', label:'Ingresos', icon:'💵', bg:'#C0DD97', text:'#173404', border:'#639922' },
+    ];
+
+    let transactions = [];
+    let dragging = null;
+    let editingId = null;
+    let renamingId = null;
+
+    const fmt = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n);
+    const fmtC = n => new Intl.NumberFormat('es-CO',{notation:'compact',maximumFractionDigits:1}).format(n);
+
+    async function load() {
+      try {
+        const r = await fetch('/api/transaction');
+        if (r.ok) transactions = await r.json();
+      } catch(e) {}
+      render();
+    }
+
+    async function saveTx(tx) {
+      try {
+        await fetch('/api/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.API_KEY },
+          body: JSON.stringify(tx)
+        });
+      } catch(e) {}
+    }
+
+    async function deleteTxRemote(id) {
+      try {
+        await fetch('/api/transaction/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + window.API_KEY } });
+      } catch(e) {}
+    }
+
+    function openModal() {
+      document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('modal').classList.add('open');
+    }
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+    async function addManual() {
+      const desc = document.getElementById('f-desc').value.trim();
+      const amount = parseInt(document.getElementById('f-amount').value);
+      const dateRaw = document.getElementById('f-date').value;
+      const category = document.getElementById('f-cat').value;
+      if (!desc || !amount || !dateRaw) return alert('Completa todos los campos');
+      const [y,m,d] = dateRaw.split('-');
+      const date = `${d}/${m}/${y}`;
+      const tx = { id: Date.now(), desc, amount, date, category, manual: true };
+      transactions.push(tx);
+      await saveTx(tx);
+      closeModal();
+      document.getElementById('f-desc').value = '';
+      document.getElementById('f-amount').value = '';
+      render();
+    }
+
+    async function getAIAdvice() {
+      const btn = document.getElementById('ai-btn');
+      const result = document.getElementById('ai-result');
+      const loading = document.getElementById('ai-loading');
+      const placeholder = document.getElementById('ai-placeholder');
+      btn.disabled = true;
+      result.style.display = 'none';
+      placeholder.style.display = 'none';
+      loading.style.display = 'block';
+      const totals = transactions.reduce((a,t) => { a[t.category]=(a[t.category]||0)+t.amount; return a; }, {});
+      const resumen = transactions.map(t => `${t.date} | ${t.category} | ${t.desc} | $${t.amount.toLocaleString('es-CO')}`).join('\n');
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1000,
+            system: `Eres un asesor financiero personal amigable que habla en español colombiano. 
+Analiza las transacciones del usuario y da recomendaciones concretas, prácticas y motivadoras.
+Sé específico con los números. Usa emojis moderadamente. Máximo 5 recomendaciones claras.
+Menciona en qué gasta más, cómo podría reducirlo, y cómo empezar a invertir o ahorrar más.`,
+            messages: [{
+              role: 'user',
+              content: `Aquí están mis transacciones de abril 2026:\n\n${resumen}\n\nResumen:\n- Ingresos: $${(totals.ingresos||0).toLocaleString('es-CO')}\n- Comida: $${(totals.comida||0).toLocaleString('es-CO')}\n- Compras: $${(totals.compras||0).toLocaleString('es-CO')}\n- Otro: $${(totals.otro||0).toLocaleString('es-CO')}\n\nDame recomendaciones personalizadas para ahorrar más y mejorar mis finanzas.`
+            }]
+          })
+        });
+        const data = await r.json();
+        const text = data.content?.find(b => b.type === 'text')?.text || 'No se pudo obtener respuesta.';
+        result.textContent = text;
+        result.style.display = 'block';
+      } catch(e) {
+        result.textContent = 'Error al conectar con la IA. Intenta de nuevo.';
+        result.style.display = 'block';
+      }
+      loading.style.display = 'none';
+      btn.disabled = false;
+    }
+
+    function render() {
+      const totals = transactions.reduce((a,t) => { a[t.category]=(a[t.category]||0)+t.amount; return a; }, {});
+      const ing = totals.ingresos||0, gas = (totals.comida||0)+(totals.compras||0)+(totals.otro||0);
+      const aho = Math.max(0,ing-gas), pct = ing>0 ? Math.round(aho/ing*100) : 0;
+      document.getElementById('subtitle').textContent = `Bancolombia · ${transactions.length} transacciones · desde 1 abr 2026`;
+      document.getElementById('s-ingresos').textContent = fmt(ing);
+      document.getElementById('s-gastos').textContent = fmt(gas);
+      document.getElementById('s-ahorro').textContent = fmt(aho);
+      document.getElementById('s-ahorro2').textContent = fmt(aho);
+      document.getElementById('s-pct').textContent = pct+'%';
+      document.getElementById('savings-bar').style.width = Math.min(pct,100)+'%';
+      document.getElementById('savings-text').textContent = pct>=20
+        ? `${pct}% · ¡Excelente, superas el 20%!`
+        : `${pct}% · Faltan ${20-pct}pp para llegar al 20%`;
+      const zonesEl = document.getElementById('zones');
+      zonesEl.innerHTML = '';
+      CATS.forEach(cat => {
+        const catTx = transactions.filter(t => t.category===cat.id);
+        const total = catTx.reduce((s,t)=>s+t.amount,0);
+        const zone = document.createElement('div');
+        zone.className = 'zone';
+        zone.dataset.cat = cat.id;
+        zone.innerHTML = `
+          <div class="zone-header">
+            <span class="zone-title">${cat.icon} ${cat.label}</span>
+            <span class="zone-total" style="background:${cat.bg};color:${cat.text}">${fmt(total)}</span>
+          </div>
+          <div class="pieces" id="pieces-${cat.id}">
+            ${catTx.length===0?'<span class="empty">Suelta piezas aquí</span>':''}
+          </div>`;
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', e => {
+          e.preventDefault(); zone.classList.remove('dragover');
+          if (dragging!=null) { transactions=transactions.map(t=>t.id===dragging?{...t,category:cat.id}:t); dragging=null; render(); }
+        });
+        zonesEl.appendChild(zone);
+        catTx.forEach(tx => {
+          const p = document.createElement('div');
+          p.className = 'piece';
+          p.draggable = renamingId!==tx.id;
+          p.style.cssText = `background:${cat.bg};border-color:${cat.border}`;
+          const nameHtml = renamingId===tx.id
+            ? `<input class="rename-input" value="${tx.desc}" id="ri-${tx.id}" style="color:${cat.text}" />`
+            : `<div class="piece-name" style="color:${cat.text}">${tx.desc}${tx.manual?'<span class="manual-badge">manual</span>':''}</div>`;
+          p.innerHTML = nameHtml + `
+            <div class="piece-meta" style="color:${cat.text}"><span>${tx.date}</span><span>${fmtC(tx.amount)}</span></div>
+            <div class="piece-actions">
+              <button class="btn-sm" onclick="startRename(${tx.id})" style="color:${cat.text}">✏️</button>
+              <button class="btn-sm" onclick="toggleEdit(${tx.id})" style="color:${cat.text}">mover</button>
+              <button class="btn-sm btn-del" onclick="deleteTx(${tx.id})">×</button>
+            </div>
+            <div class="popup ${editingId===tx.id?'open':''}" id="pop-${tx.id}">
+              ${CATS.map(c=>`<button class="popup-opt" style="background:${c.bg};color:${c.text}" onclick="moveTo(${tx.id},'${c.id}')">${c.icon} ${c.label}</button>`).join('')}
+            </div>`;
+          p.addEventListener('dragstart', () => dragging=tx.id);
+          document.getElementById(`pieces-${cat.id}`).appendChild(p);
+          if (renamingId===tx.id) {
+            const inp = document.getElementById(`ri-${tx.id}`);
+            inp.focus();
+            inp.addEventListener('blur', () => commitRename(tx.id, inp.value));
+            inp.addEventListener('keydown', e => {
+              if(e.key==='Enter') commitRename(tx.id,inp.value);
+              if(e.key==='Escape') { renamingId=null; render(); }
+            });
+          }
+        });
+      });
+    }
+
+    function toggleEdit(id) { editingId=editingId===id?null:id; render(); }
+    function moveTo(id,cat) { transactions=transactions.map(t=>t.id===id?{...t,category:cat}:t); editingId=null; render(); }
+    function deleteTx(id) { transactions=transactions.filter(t=>t.id!==id); deleteTxRemote(id); render(); }
+    function startRename(id) { renamingId=id; editingId=null; render(); }
+    function commitRename(id,val) { if(val.trim()) transactions=transactions.map(t=>t.id===id?{...t,desc:val.trim()}:t); renamingId=null; render(); }
+
+    document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+    load();
+    setInterval(load, 5*60*1000);
+  </script>
+</body>
+</html>
